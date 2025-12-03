@@ -14,6 +14,7 @@ class Manual:
     download_url: str
     created_at: str
     last_modified: str
+    hash: str
 
 
 # ------------------------------------------------------------
@@ -85,7 +86,8 @@ class ManualsAPI:
                     name=entry["name"],
                     download_url=entry["download_url"],
                     created_at=entry["created_at"],
-                    last_modified=entry["last_modified"]
+                    last_modified=entry["last_modified"],
+                    hash=entry["hash"]
                 )
                 loaded_manuals.append(manual)
             except KeyError as e:
@@ -95,3 +97,24 @@ class ManualsAPI:
         logging.info(f"Loaded {len(self.manuals)} manuals.")
 
         return self.manuals
+    
+    def download_file(self, download_url: str) -> Optional[bytes]:
+        """
+        Lädt die Datei von der gegebenen Download-URL herunter.
+
+        Parameter:
+            download_url: URL zum Herunterladen der Datei
+
+        Rückgabe:
+            Der Inhalt der Datei als Bytes, oder None bei Fehlern.
+        """
+        logging.info(f"Downloading file from: {download_url}")
+        response = requests.get(download_url, headers=self._headers())
+
+        if response.status_code != 200:
+            logging.error(
+                f"Failed to download file ({response.status_code}): {response.text}"
+            )
+            return None
+
+        return response.content
