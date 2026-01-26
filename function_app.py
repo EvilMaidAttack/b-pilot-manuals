@@ -1,31 +1,33 @@
-from core.graph_api import GraphAPI
-from core.manual_api import ManualsAPI, Manual
+from sharepoint.sharepoint_api import SharePointClient
+from manuals.manual_api import ManualsAPI
+from manuals.service import ManualsService
 import azure.functions as func
 import logging
 import os
+logger = logging.getLogger(__name__)
 
 app = func.FunctionApp()
 
-@app.timer_trigger(schedule="*/10 * * * * *", arg_name="myTimer", run_on_startup=False)
+@app.timer_trigger(schedule="0 * * * * *", arg_name="myTimer", run_on_startup=False)
 def FetchFromAPIUploadToSharepoint(myTimer: func.TimerRequest) -> None:
 
-    logging.info('Started function "FetchFromAPIUploadToSharepoint"...')
+    logger.info('Started function "FetchFromAPIUploadToSharepoint"...')
 
-    manuals_api = ManualsAPI(base_url=os.getenv("MANUALS_API_BASE_URL"), api_key=os.getenv("MANUALS_API_KEY"))
-    manuals = manuals_api.load_manuals()
+    # VARIABLES
+    manual_base_url = os.getenv("MANUALS_API_BASE_URL")
+    manual_api_key = os.getenv("MANUALS_API_KEY")
+    sharepoint_site_id = os.getenv("SHAREPOINT_SITE_ID")
+    sharepoint_drive_id = os.getenv("SHAREPOINT_DRIVE_ID")
+    tenant_id = os.getenv("TENANT_ID")
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
 
-    graph = GraphAPI()
+    # SETUP SERVICES
+    manuals_api = ManualsAPI(base_url = manual_base_url, api_key = manual_api_key)
+    sharepoint_api = SharePointClient(tenant_id, client_id, client_secret, sharepoint_site_id, sharepoint_drive_id)
+    service = ManualsService(manuals_api, sharepoint_api)
 
-    site_id = os.getenv("SHAREPOINT_SITE_ID")
-    drive_id = os.getenv("SHAREPOINT_DRIVE_ID")
-    folder_path = "Manuals"
-
-    # sharepoint_items = graph.list_folder_items(site_id, drive_id, folder_path)
-    # TODO: Use the hash to check if the file already exists and is up to date
-    # TODO: Store the hashes of uploaded files in tinydb or similar lightweight DB
-    for manual in manuals:
-        download_url = manual.download_url
-        file_name = manual.file_name
-        file_content = manuals_api.download_file(download_url)
-        graph.upload_file(site_id, drive_id, folder_path, file_name, file_content)
-        logging.info(f'Uploaded {file_name} to SharePoint')
+    # RUN SYNC
+    service.sync_manuals(max_files=3)
+        
+    logger.info('Finished function "FetchFromAPIUploadToSharepoint".')

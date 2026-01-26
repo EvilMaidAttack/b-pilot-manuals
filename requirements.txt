@@ -5,3 +5,5 @@
 azure-functions
 msal
 requests
+pydantic
+httpx
